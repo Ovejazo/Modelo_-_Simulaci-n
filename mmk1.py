@@ -1,135 +1,179 @@
+#Autores
+#---Thomas Riffo 21134817-8
+#---Isidora Oyanedel 21168603-0
+
+#Hecho con python
+
+#Importamos las librerias necesarias
 import argparse
 import random
 
-
+#Definimos el main
 def main():
-    parser = argparse.ArgumentParser(description="Simulador de una cola M/M/1/K")
-
-    parser.add_argument('--lambda', dest='lmbda', type=float, required=True, help='Tasa de llegada de clientes (λ)')
-    parser.add_argument('--mu', type=float, required=True, help='Tasa de servicio del servidor (μ)')
-    parser.add_argument('--K', type=int, required=True, help='Capacidad máxima del sistema')
-    parser.add_argument('--arriendo', type=float, required=True, help='Costo de arriendo por puesto en la cola')
-    parser.add_argument('--cobro', type=float, required=True, help='Cobro por cliente atendido')
-    parser.add_argument('--clientes', type=int, required=True, help='Número de clientes a atender')
+    
+    #Vamos a obtener los argumentos con el metodo argparse
+    parser = argparse.ArgumentParser(description="Simulador de M/M/1/K")
+    
+    #Conseguimos los argumentos necesarios
+    parser.add_argument('--lambda', dest='lmbda', type=float, required=True)
+    parser.add_argument('--mu', type=float, required=True)
+    parser.add_argument('--K', type=float, required=True)
+    parser.add_argument('--clientes', type=float, required=True)
+    parser.add_argument('--arriendo', type=float, required=True)
+    parser.add_argument('--cobro', type=float, required=True)
 
     args = parser.parse_args()
-
-    # Verificación básica
-    if args.lmbda <= 0 or args.mu <= 0 or args.K <= 0 or args.arriendo < 0 or args.cobro < 0 or args.clientes <= 0:
+    
+    #Verificación inicial de los argumentos
+    if args.lmbda <= 0 or args.mu <= 0 or args.K <= 0 or args.clientes <= 0 or args.arriendo < 0 or args.cobro < 0:
         print("Todos los valores deben ser positivos. El arriendo y cobro pueden ser cero.")
         return
-
-    # Imprimir los argumentos (opcionalmente para pruebas)
-    print("Parámetros de entrada:")
-    print(f"λ = {args.lmbda}, μ = {args.mu}, K = {args.K}, arriendo = {args.arriendo}, cobro = {args.cobro}, clientes = {args.clientes}")
-
-    # Variables del sistema
-    tiempo_actual = 0.0
-    proxima_llegada = random.expovariate(args.lmbda)
-    proxima_salida = float('inf')  # No hay salida programada al inicio
-
-    # Estado del sistema
-    num_en_sistema = 0  # incluye servidor + cola
-    clientes_atendidos = 0
-    clientes_rechazados = 0
-    tiempo_ocupado_servidor = 0.0
-    tiempo_anterior = 0.0
-
-    # Para calcular el largo promedio de la cola
-    area_bajo_cola = 0.0
-
-    def manejar_llegada():
-        nonlocal num_en_sistema, proxima_llegada, proxima_salida, tiempo_actual, clientes_rechazados, tiempo_ocupado_servidor
-
-        if num_en_sistema >= args.K:
-            # Sistema lleno → el cliente se va
-            clientes_rechazados += 1
-        else:
-            if num_en_sistema == 0:
-                # Servidor libre → atiende directamente
-                tiempo_servicio = random.expovariate(args.mu)
-                proxima_salida = tiempo_actual + tiempo_servicio
-                tiempo_ocupado_servidor += tiempo_servicio
-            # En cualquier caso, el cliente entra al sistema (servido o espera)
-            num_en_sistema += 1
-
-        # Programar próxima llegada
-        proxima_llegada = tiempo_actual + random.expovariate(args.lmbda)
-
-    def actualizar_area_bajo_cola():
-        nonlocal area_bajo_cola, tiempo_actual, tiempo_anterior, num_en_sistema
-        # Cola = num_en_sistema - 1 (excepto cuando sistema está vacío)
-        cola_actual = max(0, num_en_sistema - 1)
-        area_bajo_cola += cola_actual * (tiempo_actual - tiempo_anterior)
-        tiempo_anterior = tiempo_actual
-
-        
-    def manejar_salida():
-        nonlocal num_en_sistema, proxima_salida, clientes_atendidos, tiempo_actual, tiempo_ocupado_servidor
-
-        clientes_atendidos += 1
-        num_en_sistema -= 1  # Se va un cliente (sale del sistema)
-
-        if num_en_sistema > 0:
-            # Aún hay alguien esperando → servir al siguiente
-            tiempo_servicio = random.expovariate(args.mu)
-            proxima_salida = tiempo_actual + tiempo_servicio
-            tiempo_ocupado_servidor += tiempo_servicio
-        else:
-            # Nadie más en el sistema → servidor inactivo
-            proxima_salida = float('inf')
-            
     
-    while clientes_atendidos < args.clientes:
-        if proxima_llegada < proxima_salida:
-            # El siguiente evento es una llegada
-            tiempo_actual = proxima_llegada
-            actualizar_area_bajo_cola()
-            manejar_llegada()
-        else:
-            # El siguiente evento es una salida
-            tiempo_actual = proxima_salida
-            actualizar_area_bajo_cola()
-            manejar_salida()
+    #Variables para que el sistema funcione
+    tiempoActual = 0.0
+    proximaLlegada = random.expovariate(args.lmbda)
+    proximaSalida = float('inf')  # No hay salida programada al inicio
+    
+    #Estado del sistema
+    numEnSistema = 0  # incluye servidor + cola
+    clientesAtendidos = 0
+    clientesRechazados = 0
+    tiempoOcupadoServidor = 0.0
+    tiempoAnterior = 0.0
+    
+    #Para calcular la cola
+    areaBajoCola = 0.0
+    
+#--------------------- DEFINIMOS LAS FUNCIONES ---------------------#
+    
+    #Definimos la función de llegada de clientes
+    def ManejarLlegada():
+        #Definimos las variables que vamos a usar
+        nonlocal numEnSistema, proximaLlegada, proximaSalida, tiempoActual, clientesRechazados, tiempoOcupadoServidor
+        
+        #Vamos a seguir los pasos del diagrama
+        if numEnSistema >= args.K: #Si el sistema está lleno
+            clientesRechazados += 1
             
-    tiempo_total = tiempo_actual  # Tiempo de simulación
+        else:
+            if numEnSistema == 0: #Si no hay nadie atendiendose
+                tiempoServicio = random.expovariate(args.mu)
+                proximaSalida = tiempoActual + tiempoServicio
+                tiempoOcupadoServidor += tiempoServicio
 
-    # 1. Utilización del servidor
-    utilizacion_simulada = 100 * tiempo_ocupado_servidor / tiempo_total
+            #Sino, entonces guardamos un cliente más al sistema
+            numEnSistema += 1
+        
+        #Definimos la proxima llegada
+        proximaLlegada = tiempoActual + random.expovariate(args.lmbda)
+        
+    #Definimos la función de salida de clientes
+    def manejarSalida():
+        #Definimos las variables que se van a usar
+        nonlocal numEnSistema, proximaLlegada, proximaSalida, tiempoActual, tiempoOcupadoServidor, clientesAtendidos
 
-    # 2. Tasa efectiva de arribos
-    tasa_efectiva_simulada = (clientes_atendidos) / tiempo_total
-
-    # 3. Largo promedio de la cola
-    largo_promedio_cola_simulado = area_bajo_cola / tiempo_total
-
-    # 4. Ganancia total
-    puestos_en_uso = args.K - 1  # Solo se cobra arriendo por la cola (no el servidor)
-    costo_total_arriendo = puestos_en_uso * args.arriendo
-    ganancia_total = clientes_atendidos * args.cobro - costo_total_arriendo
-
-    # Cálculos teóricos (para comparación)
+        #Como entramos a la función de salida, entonces el servidor atendio a un cliente
+        clientesAtendidos += 1
+        numEnSistema -= 1
+        
+        #Preguntamos si hay almenos un cliente en el sistema
+        if numEnSistema > 0:
+            #Si hay almenos un cliente, entonces programamos la proxima salida
+            tiempoServicio = random.expovariate(args.mu)
+            proximaSalida = tiempoActual + tiempoServicio
+            tiempoOcupadoServidor += tiempoServicio
+        
+        #Si no hay nadie en el sistema, entonces no hay proxima salida    
+        else: 
+            proximaSalida = float('inf')
+        
+    #Definimos la función para conseguir estadisticas    
+    def actualizarAreaBajoCola():
+        #Definimos las variables que vamos a usar
+        nonlocal areaBajoCola, tiempoActual, tiempoAnterior, numEnSistema
+        
+        #La cola en el sistema sera siempre la cantidad de clientes menos 1
+        colaActual = max(0, numEnSistema - 1) 
+        
+        #Conseguimos el area bajo la cola
+        areaBajoCola += colaActual * (tiempoActual - tiempoAnterior)
+        tiempoAnterior = tiempoActual
+        
+    #Obtenemos la utilización simulada del sistema
+    def getUtilizacion():
+        return 100 * tiempoOcupadoServidor / tiempoTotal
+    
+    #Obtenemos la tasa efectiva simulada
+    def getTasaEfectivaSimulada():
+        return (clientesAtendidos) / tiempoTotal
+        
+    #Obtenemos el largo promedio de la cola
+    def getLargoPromedioColaSimulada():
+        return areaBajoCola / tiempoTotal
+        
+#--------------------- Iniciamos la simulación ---------------------#
+        
+    #Wait principal para el funcionamiento del codigo
+    while clientesAtendidos < args.clientes:
+        
+        #Preguntamos si viene una llegada o una salida
+        if proximaLlegada < proximaSalida:
+            #El siguiente evento es una llegada
+            tiempoActual = proximaLlegada
+            actualizarAreaBajoCola()
+            ManejarLlegada()
+            
+        #Si la salida viene antes que la llegada
+        else:
+            #El siguiente evento es una salida
+            tiempoActual = proximaSalida
+            actualizarAreaBajoCola()
+            manejarSalida()
+            
+    #Tiempo simulado
+    tiempoTotal = tiempoActual
+    
+#--------------------- Conseguimos los datos que nos piden ---------------------#
+    
+    #la utilización, pero simulada 
+    utilizacionSimulada = getUtilizacion()
+    
+    #Conseguimos la tasa efectiva de arribos
+    tasaEfectivaSimulada = getTasaEfectivaSimulada()
+    
+    #Largo promedio de la cola
+    largoPromedioColaSimulada = getLargoPromedioColaSimulada()
+    
+    #Ganancia total del sistema
+    puestosEnUso = args.K - 1
+    costoTotalArriendo = puestosEnUso * args.arriendo
+    gananciaTotal = clientesAtendidos * args.cobro - costoTotalArriendo
+        
+#--------------------- Realizamos calculos teoricos ---------------------#
     rho = args.lmbda / args.mu
     if rho == 1:
-        pk = 1 / (args.K + 1)
+        #Usamos limites para que tienda a 1 y no se indetermine
+        pi_0 = 1 / (args.K + 1)
     else:
-        pk = ((1 - rho) * rho**args.K) / (1 - rho**(args.K + 1))
+        #Metodo para conseguir pi_0 y conseguir la utilización
+        pi_0 = (1 - rho) / (1 - rho**(args.K + 1))
+
+    #Calculamos pi_k
+    #pi_K = (rho ** args.K) * pi_0
+
+    #Utilización teórica y tasa efectiva de arribos
+    utilizacionTeorica = 100 * (1 - pi_0)
+    tasaEfectivaTeorica = args.lmbda * (1 - pi_0)
     
-    utilizacion_teorica = 100 * (1 - pk)
-    tasa_efectiva_teorica = args.lmbda * (1 - pk)
-    largo_promedio_teorico = rho * (1 - (args.K + 1) * rho**args.K + args.K * rho**(args.K + 1)) / ((1 - rho) * (1 - rho**(args.K + 1))) if rho != 1 else args.K / 2
-
-    # Formato de salida
-    print(f"Utilización: {utilizacion_simulada:.1f}% {utilizacion_teorica:.1f}%")
-    print(f"Tasa efectiva de arrivos: {tasa_efectiva_simulada:.1f} {tasa_efectiva_teorica:.1f}")
-    print(f"Largo promedio de la cola: {largo_promedio_cola_simulado:.1f} {largo_promedio_teorico:.1f}")
-    print(f"Ganancia total: ${int(ganancia_total)}")
-
-
-
-
-
+    #Conseguimos los calculos de la cola
+    largoPromedioCola = rho * (1 - (args.K + 1) * rho**args.K + args.K * rho**(args.K + 1)) / ((1 - rho) * (1 - rho**(args.K + 1))) if rho != 1 else args.K / 2
+    
+    #Imprimimos los resultados
+    print(f"Utilización: {utilizacionSimulada:.1f}% {utilizacionTeorica:.1f}%")
+    print(f"Tasa efectiva de arribos: {tasaEfectivaSimulada:.1f} {tasaEfectivaTeorica:.1f}")
+    print(f"Largo promedio de la cola: {largoPromedioColaSimulada:.1f} {largoPromedioCola:.1f}")
+    print(f"Ganancia total: ${int(gananciaTotal)}")
+    
 if __name__ == "__main__":
     main()
-    
     
