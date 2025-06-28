@@ -2,7 +2,7 @@
 #---Thomas Riffo 21134817-8
 #---Isidora Oyanedel 21168603-0
 
-#Hecho con python
+#Hecho con python 3.7
 
 #Importamos las librerias necesarias
 import argparse
@@ -32,7 +32,7 @@ def main():
     #Variables para que el sistema funcione
     tiempoActual = 0.0
     proximaLlegada = random.expovariate(args.lmbda)
-    proximaSalida = float('inf')  # No hay salida programada al inicio
+    proximaSalida = float('inf')  #Aun no hay una salida programada al inicio
     
     #Estado del sistema
     numEnSistema = 0  # incluye servidor + cola
@@ -154,19 +154,27 @@ def main():
     if rho == 1:
         #Usamos limites para que tienda a 1 y no se indetermine
         pi_0 = 1 / (args.K + 1)
+        
+        #Vamos a conseguir la cola
+        L = args.K / 2
     else:
         #Metodo para conseguir pi_0 y conseguir la utilización
         pi_0 = (1 - rho) / (1 - rho**(args.K + 1))
+        
+        #Vamos a calular la cola, pero lo vamos hacer por parte para que sea más facil.
+        denominador =  ((1 - rho) * (1- rho**(args.K + 1)))
+        numerador = rho * (1-(args.K + 1) * rho**args.K + args.K * rho**(args.K + 1)) 
+        L = numerador/denominador 
 
     #Calculamos pi_k
-    #pi_K = (rho ** args.K) * pi_0
+    pi_K = (rho ** args.K) * pi_0
 
     #Utilización teórica y tasa efectiva de arribos
     utilizacionTeorica = 100 * (1 - pi_0)
-    tasaEfectivaTeorica = args.lmbda * (1 - pi_0)
+    tasaEfectivaTeorica = args.lmbda * (1 - pi_K)
     
-    #Conseguimos los calculos de la cola
-    largoPromedioCola = rho * (1 - (args.K + 1) * rho**args.K + args.K * rho**(args.K + 1)) / ((1 - rho) * (1 - rho**(args.K + 1))) if rho != 1 else args.K / 2
+    #Consegimos los calculos de la cola
+    largoPromedioCola = L - (1 - pi_0)
     
     #Imprimimos los resultados
     print(f"Utilización: {utilizacionSimulada:.1f}% {utilizacionTeorica:.1f}%")
